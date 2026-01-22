@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AbirTech Store</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        :root { --bg: #050505; --card-bg: #1a1a1a; --neon: #00ffcc; --text: #eee; }
+        body { margin: 0; font-family: 'Roboto', sans-serif; background-color: var(--bg); color: var(--text); padding-bottom: 20px; }
+
+        /* Header & Logo */
+        header { padding: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.8); position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); border-bottom: 1px solid #333; }
+        .logo { font-family: 'Orbitron', sans-serif; font-size: 24px; color: #fff; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px var(--neon), 0 0 20px var(--neon); }
+        
+        /* Ad Containers */
+        .ad-container { width: 100%; min-height: 50px; background: #111; display: flex; justify-content: center; align-items: center; margin: 10px 0; overflow: hidden; border: 1px dashed #333; }
+        
+        /* Search & Filter */
+        .controls { padding: 15px; display: flex; gap: 10px; overflow-x: auto; }
+        .filter-btn { background: #333; color: white; border: none; padding: 8px 15px; border-radius: 20px; white-space: nowrap; cursor: pointer; transition: 0.3s; }
+        .filter-btn.active { background: var(--neon); color: black; box-shadow: 0 0 10px var(--neon); }
+
+        /* Grid Layout */
+        .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 15px; padding: 15px; }
+        .app-card { background: var(--card-bg); border-radius: 12px; padding: 15px; text-align: center; transition: 0.3s; position: relative; overflow: hidden; border: 1px solid #333; }
+        .app-card:hover { transform: translateY(-5px); border-color: var(--neon); }
+        .app-card img { width: 60px; height: 60px; border-radius: 12px; margin-bottom: 10px; object-fit: cover; }
+        .app-name { font-weight: 500; font-size: 14px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .app-cat { font-size: 10px; color: #aaa; background: #222; padding: 2px 6px; border-radius: 4px; }
+        
+        /* Download Button */
+        .dl-btn { display: block; width: 100%; background: #222; color: var(--neon); border: 1px solid var(--neon); padding: 5px; margin-top: 10px; border-radius: 5px; font-size: 12px; cursor: pointer; text-decoration: none; }
+        .dl-btn:hover { background: var(--neon); color: black; }
+
+        /* Footer */
+        footer { text-align: center; padding: 20px; color: #555; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">AbirTech</div>
+        <i class="material-icons" style="color: white;">search</i>
+    </header>
+
+    <!-- Top Ad Place -->
+    <div id="top-ad-slot" class="ad-container">
+        <span style="color: #444; font-size: 10px;">Advertisement</span>
+    </div>
+
+    <!-- Filters -->
+    <div class="controls">
+        <button class="filter-btn active" onclick="filterApps('All')">All</button>
+        <button class="filter-btn" onclick="filterApps('Application')">Apps</button>
+        <button class="filter-btn" onclick="filterApps('Game')">Games</button>
+        <button class="filter-btn" onclick="filterApps('Document')">Docs</button>
+    </div>
+
+    <!-- Content Grid -->
+    <div class="app-grid" id="mainGrid">
+        <!-- Apps will load here -->
+        <p style="color: #666; width: 100%;">Loading apps...</p>
+    </div>
+
+    <!-- Bottom Ad Place -->
+    <div id="bottom-ad-slot" class="ad-container">
+        <span style="color: #444; font-size: 10px;">Advertisement</span>
+    </div>
+
+    <footer>
+        &copy; 2024 AbirTech Store. All rights reserved.
+    </footer>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <script>
+        // --- 1. CONFIGURATION (SAME AS ADMIN) ---
+        const firebaseConfig = {
+  apiKey: "AIzaSyDGy_mBc--lBF6oKRPmQsEJ4LTPkB1-kMk",
+  authDomain: "abirtech-a0aae.firebaseapp.com",
+  databaseURL: "https://abirtech-a0aae-default-rtdb.firebaseio.com",
+  projectId: "abirtech-a0aae",
+  storageBucket: "abirtech-a0aae.firebasestorage.app",
+  messagingSenderId: "852285496788",
+  appId: "1:852285496788:web:e4686c7b8531c2c77d4a41"
+};
+        // ---------------------------------------
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        let allApps = [];
+        let directAdLink = "";
+
+        // 1. Fetch Ads
+        db.ref('ads').on('value', (snap) => {
+            const ads = snap.val();
+            if(ads) {
+                if(ads.top) injectScript('top-ad-slot', ads.top);
+                if(ads.bottom) injectScript('bottom-ad-slot', ads.bottom);
+                if(ads.download) directAdLink = ads.download;
+            }
+        });
+
+        // Helper to run scripts inserted via innerHTML
+        function injectScript(containerId, codeString) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = ""; // Clear placeholder
+            
+            // Create a temporary container to parse the string
+            const range = document.createRange();
+            range.selectNode(document.getElementsByTagName("body")[0]);
+            const documentFragment = range.createContextualFragment(codeString);
+            container.appendChild(documentFragment);
+        }
+
+        // 2. Fetch Apps
+        db.ref('apps').on('value', (snapshot) => {
+            const grid = document.getElementById('mainGrid');
+            grid.innerHTML = "";
+            allApps = [];
+            
+            snapshot.forEach(child => {
+                allApps.push(child.val());
+            });
+            // Show newest first
+            allApps.reverse(); 
+            renderApps(allApps);
+        });
+
+        function renderApps(apps) {
+            const grid = document.getElementById('mainGrid');
+            grid.innerHTML = "";
+            if(apps.length === 0) grid.innerHTML = "<p>No items found.</p>";
+
+            apps.forEach(app => {
+                grid.innerHTML += `
+                    <div class="app-card">
+                        <img src="${app.icon}" alt="app" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2096/2096898.png'">
+                        <div class="app-name">${app.name}</div>
+                        <span class="app-cat">${app.category}</span>
+                        <button class="dl-btn" onclick="downloadLogic('${app.link}')">
+                            <i class="material-icons" style="font-size: 14px; vertical-align: middle;">download</i> Download
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        // Filter Function
+        function filterApps(category) {
+            // Update buttons
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+
+            if(category === 'All') {
+                renderApps(allApps);
+            } else {
+                const filtered = allApps.filter(app => app.category === category);
+                renderApps(filtered);
+            }
+        }
+
+        // Download Logic (Adsterra Direct Link then Download)
+        function downloadLogic(realLink) {
+            if(directAdLink && directAdLink.startsWith('http')) {
+                // Open Ad in new tab
+                window.open(directAdLink, '_blank');
+                // Redirect current page or open real link after a delay
+                setTimeout(() => {
+                    window.location.href = realLink;
+                }, 1000);
+            } else {
+                // No Ad set, go directly
+                window.location.href = realLink;
+            }
+        }
+    </script>
+</body>
+</html>
